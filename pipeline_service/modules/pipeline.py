@@ -84,10 +84,13 @@ class GenerationPipeline:
 
     def _clean_gpu_memory(self) -> None:
         """
-        Clean the GPU memory.
+        Clean the GPU memory. Call after releasing references to GPU tensors
+        (e.g. after deleting the mesh) so the allocator can reclaim memory.
         """
         gc.collect()
-        torch.cuda.empty_cache()
+        if torch.cuda.is_available():
+            torch.cuda.synchronize()
+            torch.cuda.empty_cache()
 
     async def warmup_generator(self) -> None:
         """Function for warming up the generator"""
@@ -358,7 +361,8 @@ class GenerationPipeline:
         mesh, images_edited, images_without_background = await self.generate_mesh(request)
 
         glb_trellis_result = None
-        
+
+        # Free GPU memory from Trellis before heavy GLB conversion
         self._clean_gpu_memory()
 
         # Convert mesh to GLB
@@ -367,6 +371,9 @@ class GenerationPipeline:
             dynamic_params = self._get_dynamic_glb_params(mesh, request.glbconv_params, elapsed) if self.settings.api.dynamic_params else request.glbconv_params
             glb_bytes = self.convert_mesh_to_glb(mesh, dynamic_params)
             glb_trellis_result = TrellisResult(file_bytes=glb_bytes)
+            # Release mesh and its GPU tensors so memory can be reclaimed before next request
+            del mesh
+            self._clean_gpu_memory()
 
         # Save generated files
         image_edited_base64, image_no_bg_base64 = None, None
@@ -376,6 +383,9 @@ class GenerationPipeline:
                 images_without_background,
                 glb_trellis_result
             )
+        # Release image lists so we don't hold refs to PIL/tensors from Qwen/rmbg
+        del images_edited
+        del images_without_background
 
         t2 = time.time()
         generation_time = t2 - t1

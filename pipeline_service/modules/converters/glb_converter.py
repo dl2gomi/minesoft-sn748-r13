@@ -1,4 +1,5 @@
 import time
+import gc
 from typing import Dict, Tuple
 from logger_config import logger
 import numpy as np
@@ -65,6 +66,11 @@ class GLBConverter:
 
         # 7. Create the textured mesh
         textured_mesh = self._create_textured_mesh(mesh_data, base_color, metallic_roughness, params)
+
+        # Free GPU temporaries from conversion so allocator can reclaim before next request
+        gc.collect()
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
 
         return textured_mesh
 

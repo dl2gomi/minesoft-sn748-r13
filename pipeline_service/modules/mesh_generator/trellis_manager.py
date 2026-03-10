@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import os
 import time
+import gc
 from typing import Iterable, Optional
 
 import numpy as np
@@ -111,6 +112,7 @@ class TrellisService:
             )
 
             mesh = meshes[0]
+            del meshes  # free list and any other mesh refs so GPU can reclaim
             mesh.simplify()
 
             generation_time = time.time() - start
@@ -123,4 +125,5 @@ class TrellisService:
             return mesh
 
         finally:
+            gc.collect()
             torch.cuda.empty_cache()

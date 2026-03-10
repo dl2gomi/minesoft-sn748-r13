@@ -7,4 +7,5 @@ input_data/
 images/
 *.pyc
 .env
-
+build/
+o_voxel.egg-info/

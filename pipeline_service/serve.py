@@ -1,5 +1,9 @@
 from __future__ import annotations
 
+import os
+# Reduce CUDA fragmentation so allocator can reuse reserved memory (must be set before torch)
+os.environ.setdefault("PYTORCH_CUDA_ALLOC_CONF", "expandable_segments:True")
+
 from contextlib import asynccontextmanager
 from io import BytesIO
 import base64
